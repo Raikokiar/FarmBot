@@ -146,8 +146,7 @@ end
 function ScanPerimeter(orientation, cropOnfarm)
     local row = 0
     local tiles = 0
-    local Gaps = {}
-
+    local gaps = {}
 
     --turn towards the end of perimeter
     local function Turn(flip)
@@ -167,12 +166,17 @@ function ScanPerimeter(orientation, cropOnfarm)
         return hasBlock and blockData.name == cropOnfarm
     end
 
+
+
     --TODO: tiles aren't being counted right, consequentialy amount of rows will be incorrect
     while true do
         if turtle.detect() then
             Turn()
 
             if turtle.detect() then
+                --end of row and farm
+                row = row + 1
+                tiles = tiles + 1
                 break
                 --error("end of farm. still need implementation")
             end
@@ -183,6 +187,7 @@ function ScanPerimeter(orientation, cropOnfarm)
             if hasBlock and blockData.name == cropOnfarm then
                 --jump to next row
                 row = row + 1
+                tiles = tiles + 1
                 Turn(true)
             else
                 TurtleTools.MoveOrRefuel(turtle.back)
@@ -199,44 +204,44 @@ function ScanPerimeter(orientation, cropOnfarm)
             --is a gap?
             --TODO code cleaning here, it really got confusing.
 
+            --block infront, jump to next row
             if turtle.detect() then
-
-                --block infront, jump to next row
                 TurtleTools.MoveOrRefuel(turtle.back)
                 Turn()
+                row = row + 1
                 if turtle.detect() then
                     break
                     --error("End of farm. implementation is required")
                 end
                 TurtleTools.MoveOrRefuel(turtle.forward)
+                tiles = tiles + 1
                 if not isFarmTile() then
                     TurtleTools.MoveOrRefuel(turtle.back)
                     break
                     -- error("end of farm. no farmfield found in the next row")
                 end
                 Turn(true)
-
-                row = row + 1
             else
                 TurtleTools.MoveOrRefuel(turtle.forward)
                 local hasBlock, blockData = turtle.inspectDown()
 
                 if hasBlock and blockData.name == cropOnfarm then
                     tiles = tiles + 2
-                    if Gaps.maxn ~= nil then
-                        Gaps[Gaps.maxn + 1] = tiles
-                    end
+                    table.insert(gaps, tiles)
                 else
                     --not a gap. jump to next row
+
                     TurtleTools.MoveOrRefuel(turtle.back)
                     TurtleTools.MoveOrRefuel(turtle.back)
 
+                    row = row + 1
                     Turn()
                     if turtle.detect() then
                         break
                         -- error("End of farm. implementation is required")
                     end
                     TurtleTools.MoveOrRefuel(turtle.forward)
+                    tiles = tiles + 1
                     Turn(true)
                     --end of farm?
                     local hasBlock, blockData = turtle.inspectDown()
@@ -244,14 +249,13 @@ function ScanPerimeter(orientation, cropOnfarm)
                         break
                         -- error("End of farm! now this time is for real :)")
                     end
-                    row = row + 1
                 end
             end
         end
     end
 
     local rowLength = tiles / row
-    return { tiles, row, rowLength, Gaps }
+    return { row, rowLength, tiles, gaps}
 end
 
 function Harvest()
