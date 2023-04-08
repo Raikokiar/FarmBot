@@ -147,6 +147,7 @@ function ScanPerimeter(orientation, cropOnfarm)
     local row = 0
     local tiles = 0
     local gaps = {}
+    local isRunning = true
 
     --turn towards the end of perimeter
     local function Turn(flip)
@@ -161,101 +162,72 @@ function ScanPerimeter(orientation, cropOnfarm)
         end
     end
 
-    local function isFarmTile()
+    local function isFarmTileBelow()
         local hasBlock, blockData = turtle.inspectDown()
         return hasBlock and blockData.name == cropOnfarm
     end
 
+    --Increments row and tile first, then try going to next row. returns true if sucessfull
+    local function tryJumpToNextRow()
+        row = row + 1
+        tiles = tiles + 1
 
-
-    --TODO: tiles aren't being counted right, consequentialy amount of rows will be incorrect
-    while true do
+        Turn()
         if turtle.detect() then
-            Turn()
+            -- End of farm. block blocking the next row
+            isRunning = false
+            return
+        end
 
-            if turtle.detect() then
-                --end of row and farm
-                row = row + 1
-                tiles = tiles + 1
+        TurtleTools.MoveOrRefuel(turtle.forward)
+
+        if not isFarmTileBelow() then
+            TurtleTools.MoveOrRefuel(turtle.back)
+            -- End of farm! nothing on the next row
+            isRunning = false
+            return
+        end
+        Turn(true)
+    end
+
+
+    --Only increments if it is trying to go to the next tile
+    while isRunning do
+        if turtle.detect() then
+            tryJumpToNextRow()
+            if not isRunning then
                 break
-                --error("end of farm. still need implementation")
-            end
-
-            TurtleTools.MoveOrRefuel(turtle.forward)
-
-            local hasBlock, blockData = turtle.inspectDown()
-            if hasBlock and blockData.name == cropOnfarm then
-                --jump to next row
-                row = row + 1
-                tiles = tiles + 1
-                Turn(true)
-            else
-                TurtleTools.MoveOrRefuel(turtle.back)
-                break
-                --error("End of farm. I think?")
             end
         end
 
         TurtleTools.MoveOrRefuel(turtle.forward)
-        local hasBlock, blockData = turtle.inspectDown()
-        if hasBlock and blockData.name == cropOnfarm then
+        if isFarmTileBelow() then
             tiles = tiles + 1
         else
             --is a gap?
-            --TODO code cleaning here, it really got confusing.
 
-            --block infront, jump to next row
             if turtle.detect() then
+                --block infront, jump to next row
                 TurtleTools.MoveOrRefuel(turtle.back)
-                Turn()
-                row = row + 1
-                if turtle.detect() then
-                    break
-                    --error("End of farm. implementation is required")
-                end
-                TurtleTools.MoveOrRefuel(turtle.forward)
-                tiles = tiles + 1
-                if not isFarmTile() then
-                    TurtleTools.MoveOrRefuel(turtle.back)
-                    break
-                    -- error("end of farm. no farmfield found in the next row")
-                end
-                Turn(true)
+                tryJumpToNextRow()
             else
                 TurtleTools.MoveOrRefuel(turtle.forward)
-                local hasBlock, blockData = turtle.inspectDown()
 
-                if hasBlock and blockData.name == cropOnfarm then
+                if isFarmTileBelow() then
                     tiles = tiles + 2
                     table.insert(gaps, tiles)
                 else
                     --not a gap. jump to next row
-
                     TurtleTools.MoveOrRefuel(turtle.back)
                     TurtleTools.MoveOrRefuel(turtle.back)
-
-                    row = row + 1
-                    Turn()
-                    if turtle.detect() then
-                        break
-                        -- error("End of farm. implementation is required")
-                    end
-                    TurtleTools.MoveOrRefuel(turtle.forward)
-                    tiles = tiles + 1
-                    Turn(true)
-                    --end of farm?
-                    local hasBlock, blockData = turtle.inspectDown()
-                    if not hasBlock or blockData.name ~= cropOnfarm then
-                        break
-                        -- error("End of farm! now this time is for real :)")
-                    end
+                    tryJumpToNextRow()
                 end
             end
         end
     end
 
     local rowLength = tiles / row
-    return { row, rowLength, tiles, gaps}
+    return { row, rowLength, tiles, gaps }
 end
 
 function Harvest()
