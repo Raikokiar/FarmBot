@@ -1,12 +1,12 @@
 Crops = {}
-
 Seeds = {}
-
 MaxCropAge = {}
 
 HarvestInterval = 1863.14
 
 TurtleTools = require("TurtleTools")
+PerimeterUtils = require("PerimeterMovement")
+TurtleGPS = require("TurtleGPS")
 
 CURRENT_VERSION = "0.0.0"
 
@@ -74,19 +74,19 @@ function SetDefaultSetting()
     --Temporary info printing and some other player dependent setup
 
     print("\nData file created, now mapping area. Please provide fuel\n")
-    StartMapArea()
+    StartPerimeterScan()
 
     settings.set("farmbot", true)
 end
 
 function HarvestLoop()
-    sleep(HarvestInterval)
-    Harvest()
-    HarvestLoop()
+    while true do
+        sleep(HarvestInterval)
+        Harvest()
+    end
 end
 
-function StartMapArea()
-    local isOnRightCorner = false
+function StartPerimeterScan()
     local cropOnFarm
 
     for index, value in ipairs(Crops) do
@@ -95,147 +95,25 @@ function StartMapArea()
         if not hasBlock then
             error("SetupError: No crop below. is the turtle in a retangular farm field?")
         end
-
         if blockData.name == value then
             cropOnFarm = value
             break
         end
-
         if index == Crops.maxn then
             -- Prompt the player to add the crop to the list
             error("SetupError: Block below is not in Data file. use [refer to the UI here] to add more crops")
         end
     end
-
     -- check if turtle is on left corner and do some setup checks
-    local container = peripheral.wrap("back")
-    if container == nil then
-        error("SetupError: No Chest to store harvest yield. Please put a chest behind the turtle")
-    end
-    local _, type = peripheral.getType(container)
-    if type ~= "inventory" then
-        error(
-            "SetupError: The block behind does not have an accessable inventory, try using different containers like barrels or chests")
-    end
+    TurtleGPS.AnchorGps(cropOnFarm)
 
-    if turtle.detect() then
-        error("SetupError: Block ahead, turtle should be placed facing the farm")
-    end
-    turtle.turnLeft()
-
-    if turtle.detect() then
-        isOnRightCorner = true
-    else
-        TurtleTools.MoveOrRefuel(turtle.forward)
-
-        local hasBlock, blockData = turtle.inspectDown()
-
-        isOnRightCorner = hasBlock and blockData.name == cropOnFarm
-        TurtleTools.MoveOrRefuel(turtle.back)
-    end
-
-    turtle.turnRight()
-    --check for coal chest in this line
-    print(isOnRightCorner)
-
-    Perimeter = ScanPerimeter(isOnRightCorner, cropOnFarm)
+    Perimeter = PerimeterUtils.ScanPerimeter(cropOnFarm)
     print(textutils.serialize(Perimeter))
     -- settings.set("farmbot.farm", Perimeter)
 end
 
-function ScanPerimeter(orientation, cropOnfarm)
-    local row = 0
-    local tiles = 0
-    local gaps = {}
-    local isRunning = true
-
-    --turn towards the end of perimeter
-    local function Turn(flip)
-        if orientation then
-            turtle.turnLeft()
-        else
-            turtle.turnRight()
-        end
-
-        if flip then
-            orientation = not orientation
-        end
-    end
-
-    local function isFarmTileBelow()
-        local hasBlock, blockData = turtle.inspectDown()
-        return hasBlock and blockData.name == cropOnfarm
-    end
-
-    --Increments row and tile first, then try going to next row. returns true if sucessfull
-    local function tryJumpToNextRow()
-        row = row + 1
-        tiles = tiles + 1
-
-        Turn()
-        if turtle.detect() then
-            -- End of farm. block blocking the next row
-            isRunning = false
-            return
-        end
-
-        TurtleTools.MoveOrRefuel(turtle.forward)
-
-        if not isFarmTileBelow() then
-            TurtleTools.MoveOrRefuel(turtle.back)
-            -- End of farm! nothing on the next row
-            isRunning = false
-            return
-        end
-        Turn(true)
-    end
-
-
-    --Only increments if it is trying to go to the next tile
-    while isRunning do
-        if turtle.detect() then
-            tryJumpToNextRow()
-            if not isRunning then
-                break
-            end
-        end
-
-        TurtleTools.MoveOrRefuel(turtle.forward)
-        if isFarmTileBelow() then
-            tiles = tiles + 1
-        else
-            --is a gap?
-
-            if turtle.detect() then
-                --block infront, jump to next row
-                TurtleTools.MoveOrRefuel(turtle.back)
-                tryJumpToNextRow()
-            else
-                TurtleTools.MoveOrRefuel(turtle.forward)
-
-                if isFarmTileBelow() then
-                    tiles = tiles + 2
-                    table.insert(gaps, tiles)
-                else
-                    --not a gap. jump to next row
-                    TurtleTools.MoveOrRefuel(turtle.back)
-                    TurtleTools.MoveOrRefuel(turtle.back)
-                    tryJumpToNextRow()
-                end
-            end
-        end
-    end
-
-    local rowLength = tiles / row
-    return { row, rowLength, tiles, gaps }
-end
-
 function Harvest()
     --Harvest following the pattern
-end
-
-function Resume()
-    --locate itself, store items and get fuel if needed
 end
 
 Start()
