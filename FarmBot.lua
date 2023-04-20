@@ -1,12 +1,12 @@
+TurtleTools = require("TurtleTools")
+PerimeterUtils = require("PerimeterMovement")
+TurtleGPS = require("TurtleGPS")
+
 Crops = {}
 Seeds = {}
 MaxCropAge = {}
 
 HarvestInterval = 1863.14
-
-TurtleTools = require("TurtleTools")
-PerimeterUtils = require("PerimeterMovement")
-TurtleGPS = require("TurtleGPS")
 
 CURRENT_VERSION = "0.0.0"
 
@@ -69,7 +69,7 @@ function SetDefaultSetting()
 
     Crops = defaultCrops
     MaxCropAge = defaultMaxCropAge
-    Seeds = defaultMaxCropAge
+    Seeds = defaultSeeds
 
     --Temporary info printing and some other player dependent setup
 
@@ -79,15 +79,19 @@ function SetDefaultSetting()
     settings.set("farmbot", true)
 end
 
-function HarvestLoop()
+function HarvestLoop(immediately)
     while true do
-        sleep(HarvestInterval)
+        if not immediately then
+            sleep(HarvestInterval)
+        end
         Harvest()
+        immediately = false
     end
 end
 
 function StartPerimeterScan()
-    local cropOnFarm
+    CropOnFarm = nil
+    CropAgeOnFarm = nil
 
     for index, value in ipairs(Crops) do
         local hasBlock, blockData = turtle.inspectDown()
@@ -96,7 +100,9 @@ function StartPerimeterScan()
             error("SetupError: No crop below. is the turtle in a retangular farm field?")
         end
         if blockData.name == value then
-            cropOnFarm = value
+            CropOnFarm = value
+            CropAgeOnFarm = MaxCropAge[index]
+            CropSeedOnFarm = Seeds[index]
             break
         end
         if index == Crops.maxn then
@@ -105,15 +111,54 @@ function StartPerimeterScan()
         end
     end
     -- check if turtle is on left corner and do some setup checks
-    TurtleGPS.AnchorGps(cropOnFarm)
+    TurtleGPS.AnchorGps(CropOnFarm)
 
-    Perimeter = PerimeterUtils.ScanPerimeter(cropOnFarm)
-    print(textutils.serialize(Perimeter))
-    -- settings.set("farmbot.farm", Perimeter)
+    local perimeter = PerimeterUtils.DefinePerimeterSize(CropOnFarm)
+    Rows = perimeter[1]
+    RowTiles = perimeter[2]
+    settings.set("farmbot.farm_data", perimeter)
+
+    HarvestLoop(true)
 end
 
 function Harvest()
-    --Harvest following the pattern
+    local isSeedSlotSelected = false
+    local function BreakAndPlaceCrop()
+        local hasBlock, blockData = turtle.inspectDown()
+        if hasBlock and blockData.name == CropOnFarm and blockData.state.age == CropAgeOnFarm then
+            turtle.digDown()
+            if not turtle.compareDown() and not isSeedSlotSelected then
+                print(CropSeedOnFarm)
+                isSeedSlotSelected = TurtleTools.LocateItem(CropSeedOnFarm)
+            end
+            turtle.placeDown()
+            --check if grown break it then re plant it, only grab seed from seed slot if there was no seed placed
+        end
+    end
+
+    for i = 1, Rows, 1 do
+        print(i)
+        for j = 1, RowTiles - 1, 1 do
+            print(j)
+            BreakAndPlaceCrop()
+            TurtleGPS.Forward()
+        end
+        BreakAndPlaceCrop()
+        TurtleGPS.JumpToNextRow()
+    end
+
+    --turn around and deposit items
+    TurtleGPS.ReturnToOrigin()
+    TurtleGPS.SeekContainer()
+
+    TurtleGPS.TurnRight()
+    TurtleGPS.TurnRight()
+    for i = 1, 16, 1 do
+        turtle.select(i)
+        turtle.drop()
+    end
+    TurtleGPS.TurnLeft()
+    TurtleGPS.TurnLeft()
 end
 
 Start()
