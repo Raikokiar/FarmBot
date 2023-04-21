@@ -12,8 +12,9 @@ function DefinePerimeterSize(cropOnfarm)
 
     --Increments row and tile first, then try going to next row. returns true if sucessfull
     local function tryJumpToNextRow()
-        if TurtleGPS.GetTurtleRelativePosition().y == 1 then
-            rowLength = TurtleGPS.GetTurtleRelativePosition().x
+        print(TurtleGPS.GetTurtleRelativePosition().rows)
+        if TurtleGPS.GetTurtleRelativePosition().rows == 1 then
+            rowLength = math.abs(TurtleGPS.GetTurtleRelativePosition().rowLength)
         end
 
         isRunning = TurtleGPS.JumpToNextRow()
@@ -58,7 +59,7 @@ function DefinePerimeterSize(cropOnfarm)
         end
     end
 
-    local Rows = TurtleGPS.GetTurtleRelativePosition().y
+    local Rows = TurtleGPS.GetTurtleRelativePosition().rows
     TurtleGPS.ReturnToOrigin()
     TurtleGPS.SeekContainer()
 
