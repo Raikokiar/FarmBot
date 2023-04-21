@@ -1,12 +1,13 @@
+TurtleTools = require("TurtleTools")
+PerimeterUtils = require("PerimeterMovement")
+TurtleGPS = require("TurtleGPS")
+Harvesting = require("Harvest")
+
 Crops = {}
 Seeds = {}
 MaxCropAge = {}
 
 HarvestInterval = 1863.14
-
-TurtleTools = require("TurtleTools")
-PerimeterUtils = require("PerimeterMovement")
-TurtleGPS = require("TurtleGPS")
 
 CURRENT_VERSION = "0.0.0"
 
@@ -69,7 +70,7 @@ function SetDefaultSetting()
 
     Crops = defaultCrops
     MaxCropAge = defaultMaxCropAge
-    Seeds = defaultMaxCropAge
+    Seeds = defaultSeeds
 
     --Temporary info printing and some other player dependent setup
 
@@ -79,15 +80,9 @@ function SetDefaultSetting()
     settings.set("farmbot", true)
 end
 
-function HarvestLoop()
-    while true do
-        sleep(HarvestInterval)
-        Harvest()
-    end
-end
-
 function StartPerimeterScan()
-    local cropOnFarm
+    CropOnFarm = nil
+    CropAgeOnFarm = nil
 
     for index, value in ipairs(Crops) do
         local hasBlock, blockData = turtle.inspectDown()
@@ -96,7 +91,9 @@ function StartPerimeterScan()
             error("SetupError: No crop below. is the turtle in a retangular farm field?")
         end
         if blockData.name == value then
-            cropOnFarm = value
+            CropOnFarm = value
+            CropAgeOnFarm = MaxCropAge[index]
+            CropSeedOnFarm = Seeds[index]
             break
         end
         if index == Crops.maxn then
@@ -105,15 +102,12 @@ function StartPerimeterScan()
         end
     end
     -- check if turtle is on left corner and do some setup checks
-    TurtleGPS.AnchorGps(cropOnFarm)
+    TurtleGPS.AnchorGps(CropOnFarm)
 
-    Perimeter = PerimeterUtils.ScanPerimeter(cropOnFarm)
-    print(textutils.serialize(Perimeter))
-    -- settings.set("farmbot.farm", Perimeter)
-end
+    local perimeter = PerimeterUtils.DefinePerimeterSize(CropOnFarm)
+    settings.set("farmbot.farm_data", perimeter)
 
-function Harvest()
-    --Harvest following the pattern
+    Harvesting.HarvestLoop(true)
 end
 
 Start()
