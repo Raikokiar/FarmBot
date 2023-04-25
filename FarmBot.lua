@@ -7,27 +7,32 @@ Crops = {}
 Seeds = {}
 MaxCropAge = {}
 
-HarvestInterval = 1863.14
-
 CURRENT_VERSION = "0.0.0"
 
 
 
 function Start()
-    if settings.get("farmbot") then
+    if settings.get("farmbot.crops") then
         --fetch info and start harvesting loop
         Crops = settings.get("farmbot.crops")
         Seeds = settings.get("farmbot.seeds")
         MaxCropAge = settings.get("farmbot.maxCropAge")
-        GpsData = settings.get("farmbot.gps")
+        local gps = settings.get("farmbot.gps")
+        Compass = gps[1]
+        IsGoneAwayFromOrigin = gps[2]
+        TurtlePosition = gps[3]
 
-        if GpsData ~= nil and GpsData.isHarvesting then
+        if gps ~= nil and gps.isHarvesting then
+            --Clear gps data, seek origin point and re-anchor gps
             Resume()
         end
 
         for index, value in ipairs(Crops) do
             local hasBlock, BlockData = turtle.inspectDown()
             if hasBlock and BlockData.name == value then
+                CropOnFarm     = value
+                CropAgeOnFarm  = MaxCropAge[index]
+                CropSeedOnFarm = Seeds[index]
                 HarvestLoop()
                 break
             else
@@ -67,6 +72,7 @@ function SetDefaultSetting()
     settings.set("farmbot.seeds", defaultSeeds)
     settings.set("farmbot.crops", defaultCrops)
     settings.set("farmbot.maxCropAge", defaultMaxCropAge)
+    settings.save()
 
     Crops = defaultCrops
     MaxCropAge = defaultMaxCropAge
@@ -106,6 +112,7 @@ function StartPerimeterScan()
 
     local perimeter = PerimeterUtils.DefinePerimeterSize(CropOnFarm)
     settings.set("farmbot.farm_data", perimeter)
+    settings.save()
 
     Harvesting.HarvestLoop(true)
 end

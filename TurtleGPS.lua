@@ -6,8 +6,9 @@ IsGoneAwayFromOrigin = nil
 TurtleTools = require("TurtleTools")
 
 TurtlePosition = { rowLength = 0, rows = 0 }                        --> Position of the turtle relative to the origin point
+PreviousPosition = {}                                               --> Position before ReturningHome
 Compass = { [1] = "NORTH",[2] = "EAST",[3] = "SOUTH",[4] = "WEST" } --> Cardinal direction. North is always pointing towards origin point. index 1 is always the current direction
-
+PreviousHeading = ""
 --TODO: create an event when moving so i can print out and log to file whenever i move
 
 --Must be executed when using GPS and everytime the bot executes. Defines where the turtle is and where north is
@@ -25,6 +26,8 @@ function AnchorGps(cropOnFarm)
         TurtlePosition.rowLength = 1
         IsGoneAwayFromOrigin = true
         TurnRight()
+        settings.set("farmbot.gps", { Compass, IsGoneAwayFromOrigin, TurtlePosition })
+        settings.save()
         return IsGoneAwayFromOrigin
     else
         TurtleTools.MoveOrRefuel(turtle.forward)
@@ -43,21 +46,30 @@ function AnchorGps(cropOnFarm)
         end
         TurtleTools.MoveOrRefuel(turtle.back)
         TurnRight()
+        settings.set("farmbot.gps", { Compass, IsGoneAwayFromOrigin, TurtlePosition })
+        settings.save()
         return IsGoneAwayFromOrigin
     end
 end
 
-function SeekContainer()
+function SeekContainer(side)
+    if side == nil then
+        side = "back"
+    end
     while true do
         print("Looking for a container.\n")
-        local container = peripheral.wrap("back")
+        local container = peripheral.wrap(side)
         if container ~= nil then
             local _, type = peripheral.getType(container)
             if type == "inventory" then
                 return container
             end
         end
-        TurnRight()
+        if side ~= "bottom" or side ~= "top" then
+            TurnRight()
+        else
+            return nil
+        end
     end
 end
 
@@ -156,25 +168,47 @@ end
 
 function ReturnToOrigin()
     local turtlePos = GetTurtleRelativePosition()
-    repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "NORTH"
-    local movesThroughRows = math.max(turtlePos.rows - 1, 1)
+    PreviousPosition = { turtlePos.rows, turtlePos.rowLength }
+    PreviousHeading = GetCurrentDirection()
+    local movesThroughRows = turtlePos.rows - 1
     local movesOnRow = math.abs(turtlePos.rowLength) - 1
 
-    if movesThroughRows == 1 then
-        TurnAway()
+    if movesThroughRows < 1 then
+        repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "EAST"
+    else
+        repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "NORTH"
     end
 
-    for i = 1, movesOnRow, 1 do
-        TurtleGPS.Forward()
-        print("step")
-    end
-    if movesThroughRows == 1 then
-        return
-    end
-    TurnAway(true)
-    for i = 1, movesOnRow, 1 do
+    for i = 1, movesThroughRows, 1 do
         TurtleGPS.Forward()
     end
+
+    if movesThroughRows > 0 then
+        TurnAway(true)
+    end
+    for i = 1, movesOnRow, 1 do
+        TurtleGPS.Forward()
+    end
+
+    print(textutils.serialise(GetTurtleRelativePosition()))
+end
+
+function ReturnToPreviousPosition()
+    local rows = PreviousPosition[1] - 1
+    local rowLength = math.abs(PreviousPosition[2]) - 1
+    repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "WEST"
+
+    for i = 1, rowLength, 1 do
+        Forward()
+    end
+
+    TurnAway()
+
+    for i = 1, rows, 1 do
+        Forward()
+    end
+
+    repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == PreviousHeading
 end
 
 function GetCurrentDirection()
@@ -195,6 +229,7 @@ return {
     TurnLeft = TurnLeft,
     TurnRight = TurnRight,
     ReturnToOrigin = ReturnToOrigin,
+    ReturnToPreviousPosition = ReturnToPreviousPosition,
     GetCurrentDirection = GetCurrentDirection,
     GetTurtleRelativePosition = GetTurtleRelativePosition
 }

@@ -1,25 +1,32 @@
 --TurtleTools 1.0.0 by Raikokiar
 
 INVENTORY_SIZE = 16
-LOW_FUEL_THRESHOLD = 200
 
+LOW_FUEL_THRESHOLD = nil
+RepeatUntilRefilled = true
+TryRefillIfLow = true
 
 function MoveOrRefuel(command)
     if turtle.getFuelLevel() >= LOW_FUEL_THRESHOLD then
         return command()
     else
-        print("Low on fuel.\n Refueling...")
-        for i = 1, INVENTORY_SIZE, 1 do
-            turtle.select(i)
+        while true do
+            if TryRefillIfLow then
+                print("Low on fuel.\n Refueling...")
+                for i = 1, INVENTORY_SIZE, 1 do
+                    turtle.select(i)
 
-            if turtle.refuel() then
-                print("Refilled successfully")
-                return command()
+                    if turtle.refuel() then
+                        print("Refilled successfully")
+                        return command()
+                    end
+                end
+            end
+            if not RepeatUntilRefilled then
+                break
             end
         end
-
-        print("Couldn't refuel, please refuel so I can get back to operating\n")
-        return false
+        return command()
     end
 end
 
@@ -47,4 +54,13 @@ function IsFull()
     return true
 end
 
-return { LocateItem = LocateItem, MoveOrRefuel = MoveOrRefuel, IsFull = IsFull }
+function DropInventory()
+    for i = 1, 16, 1 do
+        turtle.select(i)
+        if not turtle.refuel(0) then
+            turtle.drop()
+        end
+    end
+end
+
+return { LocateItem = LocateItem, MoveOrRefuel = MoveOrRefuel, IsFull = IsFull, DropInventory = DropInventory }
