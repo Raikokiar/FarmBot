@@ -5,14 +5,21 @@ IsGoneAwayFromOrigin = nil
 
 TurtleTools = require("TurtleTools")
 
-TurtlePosition = { rowLength = 0, rows = 0 }                        --> Position of the turtle relative to the origin point
-PreviousPosition = {}                                               --> Position before ReturningHome
-Compass = { [1] = "NORTH",[2] = "EAST",[3] = "SOUTH",[4] = "WEST" } --> Cardinal direction. North is always pointing towards origin point. index 1 is always the current direction
+TurtlePosition = { rowLength = 0, rows = 0 }                           --> Position of the turtle relative to the origin point
+PreviousPosition = {}                                                  --> Position before ReturningHome
+Compass = { [1] = "NORTH", [2] = "EAST", [3] = "SOUTH", [4] = "WEST" } --> Cardinal direction. North is always pointing towards origin point. index 1 is always the current direction
 PreviousHeading = ""
---TODO: create an event when moving so i can print out and log to file whenever i move
+
+OnBeforeMoving = {}
+OnBeforeTurn = {}
 
 --Must be executed when using GPS and everytime the bot executes. Defines where the turtle is and where north is
 function AnchorGps(cropOnFarm)
+    TurtlePosition = { rowLength = 0, rows = 0 }
+    PreviousPosition = {}
+    Compass = { [1] = "NORTH", [2] = "EAST", [3] = "SOUTH", [4] = "WEST" }
+    PreviousHeading = ""
+
     SeekContainer()
 
     if turtle.detect() then
@@ -21,7 +28,7 @@ function AnchorGps(cropOnFarm)
     turtle.turnLeft()
 
     if turtle.detect() then
-        Compass = { [1] = "NORTH",[2] = "EAST",[3] = "SOUTH",[4] = "WEST" }
+        Compass = { [1] = "NORTH", [2] = "EAST", [3] = "SOUTH", [4] = "WEST" }
         TurtlePosition.rows = 1
         TurtlePosition.rowLength = 1
         IsGoneAwayFromOrigin = true
@@ -36,11 +43,11 @@ function AnchorGps(cropOnFarm)
 
         IsGoneAwayFromOrigin = hasBlock and blockData.name == cropOnFarm
         if IsGoneAwayFromOrigin then
-            Compass = { [1] = "SOUTH",[2] = "WEST",[3] = "NORTH",[4] = "EAST" }
+            Compass = { [1] = "SOUTH", [2] = "WEST", [3] = "NORTH", [4] = "EAST" }
             TurtlePosition.rows = 1
             TurtlePosition.rowLength = -1
         else
-            Compass = { [1] = "NORTH",[2] = "EAST",[3] = "SOUTH",[4] = "WEST" }
+            Compass = { [1] = "NORTH", [2] = "EAST", [3] = "SOUTH", [4] = "WEST" }
             TurtlePosition.rows = 1
             TurtlePosition.rowLength = 1
         end
@@ -52,12 +59,10 @@ function AnchorGps(cropOnFarm)
     end
 end
 
-function SeekContainer(side)
-    if side == nil then
-        side = "back"
-    end
+function SeekContainer(side, lookForTimes)
+    side = side or "back"
     while true do
-        print("Looking for a container.\n")
+        DebugLog("Looking for a container on " .. side .. ".\n")
         local container = peripheral.wrap(side)
         if container ~= nil then
             local _, type = peripheral.getType(container)
@@ -65,7 +70,15 @@ function SeekContainer(side)
                 return container
             end
         end
-        if side ~= "bottom" or side ~= "top" then
+
+        if lookForTimes ~= nil then
+            if lookForTimes == 0 then
+                return nil
+            end
+            lookForTimes = lookForTimes - 1
+        end
+
+        if side ~= "bottom" and side ~= "top" then
             TurnRight()
         else
             return nil
@@ -77,14 +90,10 @@ function Forward()
     if GetCurrentDirection() == "SOUTH" then
         TurtlePosition.rows = TurtlePosition.rows + 1
         IsGoneAwayFromOrigin = not IsGoneAwayFromOrigin
-        TurtleTools.MoveOrRefuel(turtle.forward)
-        return
     else
         if GetCurrentDirection() == "NORTH" then
             TurtlePosition.rows = TurtlePosition.rows - 1
             IsGoneAwayFromOrigin = not IsGoneAwayFromOrigin
-            TurtleTools.MoveOrRefuel(turtle.forward)
-            return
         end
     end
     if GetCurrentDirection() == "EAST" then
@@ -94,21 +103,22 @@ function Forward()
             TurtlePosition.rowLength = TurtlePosition.rowLength - 1
         end
     end
+    if OnBeforeMoving[1] ~= nil then
+        for _, func in ipairs(OnBeforeMoving) do
+            func()
+        end
+    end
     TurtleTools.MoveOrRefuel(turtle.forward)
 end
 
 function Back()
     if GetCurrentDirection() == "SOUTH" then
         TurtlePosition.rows = TurtlePosition.rows - 1
-        TurtleTools.MoveOrRefuel(turtle.back)
         IsGoneAwayFromOrigin = not IsGoneAwayFromOrigin
-        return
     else
         if GetCurrentDirection() == "NORTH" then
             TurtlePosition.rows = TurtlePosition.rows + 1
-            TurtleTools.MoveOrRefuel(turtle.back)
             IsGoneAwayFromOrigin = not IsGoneAwayFromOrigin
-            return
         end
     end
     if GetCurrentDirection() == "EAST" then
@@ -116,6 +126,11 @@ function Back()
     else
         if GetCurrentDirection() == "WEST" then
             TurtlePosition.rowLength = TurtlePosition.rowLength + 1
+        end
+    end
+    if OnBeforeMoving[1] ~= nil then
+        for _, func in ipairs(OnBeforeMoving) do
+            func()
         end
     end
     TurtleTools.MoveOrRefuel(turtle.back)
@@ -155,6 +170,11 @@ function TurnLeft()
     table.remove(Compass, 4)
     table.insert(Compass, 1, popElement)
 
+    if OnBeforeTurn[1] ~= nil then
+        for _, func in ipairs(OnBeforeTurn) do
+            func()
+        end
+    end
     turtle.turnLeft()
 end
 
@@ -163,6 +183,11 @@ function TurnRight()
     table.remove(Compass, 1)
     table.insert(Compass, popElement)
 
+    if OnBeforeTurn[1] ~= nil then
+        for _, func in ipairs(OnBeforeTurn) do
+            func()
+        end
+    end
     turtle.turnRight()
 end
 
@@ -189,8 +214,6 @@ function ReturnToOrigin()
     for i = 1, movesOnRow, 1 do
         TurtleGPS.Forward()
     end
-
-    print(textutils.serialise(GetTurtleRelativePosition()))
 end
 
 function ReturnToPreviousPosition()

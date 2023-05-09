@@ -6,18 +6,20 @@ LOW_FUEL_THRESHOLD = nil
 RepeatUntilRefilled = true
 TryRefillIfLow = true
 
+PrintingMethod = print
+
 function MoveOrRefuel(command)
     if turtle.getFuelLevel() >= LOW_FUEL_THRESHOLD then
         return command()
     else
         while true do
             if TryRefillIfLow then
-                print("Low on fuel.\n Refueling...")
+                DebugLog("Low on fuel.\n Refueling...")
                 for i = 1, INVENTORY_SIZE, 1 do
                     turtle.select(i)
 
                     if turtle.refuel() then
-                        print("Refilled successfully")
+                        DebugLog("Refilled successfully")
                         return command()
                     end
                 end
@@ -31,11 +33,10 @@ function MoveOrRefuel(command)
 end
 
 --Locate an item by the minespace
-function LocateItem(itemName)
+function SelectItem(itemName)
     for i = 1, INVENTORY_SIZE, 1 do
-        turtle.select(i)
-
-        if (turtle.getItemDetail() ~= nil and itemName == turtle.getItemDetail().name) then
+        if (turtle.getItemDetail(i) ~= nil and itemName == turtle.getItemDetail(i).name) then
+            turtle.select(i)
             return true
         end
     end
@@ -56,11 +57,23 @@ end
 
 function DropInventory()
     for i = 1, 16, 1 do
-        turtle.select(i)
+        if turtle.getItemCount(i) > 0 then
+            turtle.select(i)
+        end
         if not turtle.refuel(0) then
             turtle.drop()
         end
     end
 end
 
-return { LocateItem = LocateItem, MoveOrRefuel = MoveOrRefuel, IsFull = IsFull, DropInventory = DropInventory }
+function DebugLog(...)
+    if PrintingMethod ~= nil then
+        PrintingMethod(...)
+    end
+end
+
+function SetPrintingMethod(method)
+    PrintingMethod = method
+end
+
+return { SelectItem = SelectItem, MoveOrRefuel = MoveOrRefuel, IsFull = IsFull, DropInventory = DropInventory, SetPrintingMethod = SetPrintingMethod }
