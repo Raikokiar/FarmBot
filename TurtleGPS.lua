@@ -14,7 +14,7 @@ OnBeforeMoving = {}
 OnBeforeTurn = {}
 
 --Must be executed when using GPS and everytime the bot executes. Defines where the turtle is and where north is
-function AnchorGps(cropOnFarm)
+function AnchorGps()
     TurtlePosition = { rowLength = 0, rows = 0 }
     PreviousPosition = {}
     Compass = { [1] = "NORTH", [2] = "EAST", [3] = "SOUTH", [4] = "WEST" }
@@ -41,7 +41,7 @@ function AnchorGps(cropOnFarm)
 
         local hasBlock, blockData = turtle.inspectDown()
 
-        IsGoneAwayFromOrigin = hasBlock and blockData.name == cropOnFarm
+        IsGoneAwayFromOrigin = hasBlock and blockData.state.age ~= nil
         if IsGoneAwayFromOrigin then
             Compass = { [1] = "SOUTH", [2] = "WEST", [3] = "NORTH", [4] = "EAST" }
             TurtlePosition.rows = 1
@@ -59,10 +59,10 @@ function AnchorGps(cropOnFarm)
     end
 end
 
-function SeekContainer(side, lookForTimes)
+function SeekContainer(side, timesToSpin)
     side = side or "back"
+    DebugLog("Looking for a container on " .. side .. ".\n")
     while true do
-        DebugLog("Looking for a container on " .. side .. ".\n")
         local container = peripheral.wrap(side)
         if container ~= nil then
             local _, type = peripheral.getType(container)
@@ -71,11 +71,11 @@ function SeekContainer(side, lookForTimes)
             end
         end
 
-        if lookForTimes ~= nil then
-            if lookForTimes == 0 then
+        if timesToSpin ~= nil then
+            if timesToSpin == 0 then
                 return nil
             end
-            lookForTimes = lookForTimes - 1
+            timesToSpin = timesToSpin - 1
         end
 
         if side ~= "bottom" and side ~= "top" then

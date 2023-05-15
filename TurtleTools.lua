@@ -16,7 +16,9 @@ function MoveOrRefuel(command)
             if TryRefillIfLow then
                 DebugLog("Low on fuel.\n Refueling...")
                 for i = 1, INVENTORY_SIZE, 1 do
-                    turtle.select(i)
+                    if turtle.getItemCount(i) > 0 then
+                        turtle.select(i)
+                    end
 
                     if turtle.refuel() then
                         DebugLog("Refilled successfully")
