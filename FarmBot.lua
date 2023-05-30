@@ -10,26 +10,6 @@ MaxCropAge = {}
 
 CURRENT_VERSION = "0.0.0"
 
-
-local function defineCropOnFarm()
-    for index, value in ipairs(Crops) do
-        local hasBlock, blockData = turtle.inspectDown()
-
-        if not hasBlock then
-            error("SetupError: No crop below. is the turtle in a retangular farm field?")
-        end
-        if blockData.name == value then
-            settings.set("farmbot.crops.farming", value)
-            settings.set("farmbot.maxCropAge.farming", MaxCropAge[index])
-            settings.set("farmbot.seeds.farming", Seeds[index])
-            settings.save()
-            return value, MaxCropAge[index], Seeds[index]
-        end
-    end
-    -- Prompt the player to add the crop to the list
-    error("SetupError: Block below is not in Data file. use [refer to the UI here] to add more crops")
-end
-
 function Start()
     if settings.get("farmbot") then
         --fetch info and start harvesting loop
@@ -42,12 +22,21 @@ function Start()
         IsGoneAwayFromOrigin = gps[2]
         TurtlePosition = gps[3]
 
-        if settings.get("farmbot.is_harvesting") then
+        if settings.get("farmbot.is_harvesting") or settings.get("farmbot.isComposting") then
             ShutdownResume.Resume()
         end
 
-        defineCropOnFarm()
-        HarvestLoop()
+        if settings.get("farmbot.maxAging") or settings.get("farmbot.growAndHarvest") then
+            AddItemToBlacklist("minecraft:bone_meal")
+        end
+
+        local hasBlock, blockData = turtle.inspectDown()
+        if hasBlock and blockData.state.age ~= nil then
+            HarvestLoop()
+        else
+            error(
+                "SetupError: No crops below. See https://github.com/Raikokiar/FarmBot#readme for instructions on how to setup Farmbot")
+        end
     else
         SetDefaultSetting()
     end
@@ -78,9 +67,13 @@ function SetDefaultSetting()
     settings.define("farmbot")
     settings.set("farmbot.seeds", defaultSeeds)
     settings.set("farmbot.crops", defaultCrops)
-    settings.set("farmbot.maxCropAge", defaultMaxCropAge)
+    settings.set("farmbot.ages", defaultMaxCropAge)
     settings.set("farmbot.harvestInterval", 1863.14)
+    settings.set("farmbot.maxAging", true)
+    settings.set("farmbot.growAndHarvest", true)
     settings.save()
+
+    AddItemToBlacklist("minecraft:bone_meal")
 
     Crops = defaultCrops
     MaxCropAge = defaultMaxCropAge
@@ -93,17 +86,16 @@ function SetDefaultSetting()
 end
 
 function StartPerimeterScan()
-    local cropOnFarm, _, _ = defineCropOnFarm()
     -- check if turtle is on left corner and do some setup checks
-    TurtleGPS.AnchorGps(cropOnFarm)
+    TurtleGPS.AnchorGps()
 
-    local perimeter = PerimeterUtils.DefinePerimeterSize(cropOnFarm)
+    local perimeter = PerimeterUtils.DefinePerimeterSize()
     settings.set("farmbot.farm_data", perimeter)
     settings.set("farmbot", true)
     settings.save()
+
 
     Harvesting.HarvestLoop(true)
 end
 
 Start()
---FarmbotUI.InstantiateUI(Start)
