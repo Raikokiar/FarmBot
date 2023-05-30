@@ -14,8 +14,8 @@ function DefinePerimeterSize()
 
     --Increments row and tile first, then try going to next row. returns true if sucessfull
     local function tryJumpToNextRow()
-        if TurtleGPS.GetTurtleRelativePosition().rows == 1 then
-            rowLength = math.abs(TurtleGPS.GetTurtleRelativePosition().rowLength)
+        if TurtleGPS.GetTurtleRelativePosition().y == 0 then
+            rowLength = math.abs(TurtleGPS.GetPositionInFarm().rowLength)
         end
 
         isRunning = TurtleGPS.JumpToNextRow()
@@ -60,11 +60,11 @@ function DefinePerimeterSize()
         end
     end
 
-    local Rows = TurtleGPS.GetTurtleRelativePosition().rows
+    local Rows = TurtleGPS.GetPositionInFarm().rows
     TurtleGPS.ReturnToOrigin()
     TurtleGPS.SeekContainer()
 
-    return { Rows, rowLength,}
+    return { Rows, rowLength, }
 end
 
 --Walks through the whole perimeter. When the given function returns true it break all loops
@@ -75,34 +75,42 @@ function WalkThroughPerimeter(beforeWalkingFunc)
     if perimeter == nil then
         return false
     end
-    local rows = perimeter[1]
-    local rowTiles = perimeter[2]
 
-    for i = 1, rows, 1 do
-        for j = 1, rowTiles - 1, 1 do
-            breakLoop = beforeWalkingFunc()
-            TurtleGPS.Forward()
-            if OnMoveThroughPerimeter[1] ~= nil then
-                for _, value in ipairs(OnMoveThroughPerimeter) do
-                    value()
+    if SeekContainer("back", 4) and IsFarmTileBelow() then
+        local rows = perimeter[1]
+        local rowTiles = perimeter[2]
+
+        for i = 1, rows, 1 do
+            for j = 1, rowTiles - 1, 1 do
+                breakLoop = beforeWalkingFunc()
+                TurtleGPS.Forward()
+                if OnMoveThroughPerimeter[1] ~= nil then
+                    for _, value in ipairs(OnMoveThroughPerimeter) do
+                        value()
+                    end
                 end
-
                 if breakLoop then
                     return
                 end
             end
-        end
 
-        beforeWalkingFunc()
-        if i < rows then
-            TurtleGPS.JumpToNextRow()
-            if OnMoveThroughPerimeter[1] ~= nil then
-                for _, value in ipairs(OnMoveThroughPerimeter) do
-                    value()
+            beforeWalkingFunc()
+            if i < rows then
+                TurtleGPS.JumpToNextRow()
+                if OnMoveThroughPerimeter[1] ~= nil then
+                    for _, value in ipairs(OnMoveThroughPerimeter) do
+                        value()
+                    end
                 end
             end
         end
+    else
+        error("Not in origin point while walking through farm")
     end
 end
 
-return { DefinePerimeterSize = DefinePerimeterSize, WalkThroughPerimeter = WalkThroughPerimeter}
+return {
+    DefinePerimeterSize = DefinePerimeterSize,
+    WalkThroughPerimeter = WalkThroughPerimeter,
+    IsFarmTileBelow = IsFarmTileBelow
+}

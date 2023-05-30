@@ -3,13 +3,16 @@ TurtleGPS = require("TurtleGPS")
 Harvesting = require("Harvest")
 
 function Resume()
-    local seed = settings.get("farmbot.seeds.farming")
-    TurtleTools.SelectItem(seed)
     turtle.placeDown()
 
-    TurtlePosition = settings.get("farmbot.position")
+    SetPosition(settings.get("farmbot.position"))
     IsGoneAwayFromOrigin = settings.get("farmbot.origin_heading")
     Compass = settings.get("farmbot.compass")
+
+    if settings.get("farmbot.isComposting") then
+        ReturnComposting()
+        return
+    end
 
     if TurtlePosition == nil then
         RecalibrateGPS()
@@ -25,6 +28,17 @@ function Resume()
     TurtleGPS.TurnRight()
 end
 
+function ReturnComposting()
+    if SeekContainer("bottom") then
+        turtle.up()
+    end
+
+    ReturnToOrigin()
+    CompostingRoutine()
+    SeekContainer("back")
+    HarvestLoop()
+end
+
 function RecalibrateGPS()
     DebugLog("Unprecise GPS data detected! Seeking for origin point")
     while true do
@@ -33,15 +47,18 @@ function RecalibrateGPS()
         if hasBlock and blockData.state.age ~= nil and not turtle.detect() then
             TurtleTools.MoveOrRefuel(turtle.forward)
         else
-            if TurtleGPS.SeekContainer("back", 4) then
-                TurtleGPS.AnchorGps(settings.get("farmbot.crops.farming"))
-                HarvestLoop(true)
-                break
-            end
             local hasBlock, blockData = turtle.inspectDown()
-
+            
             if not hasBlock or hasBlock and blockData.state.age == nil or not turtle.detect() then
                 TurtleTools.MoveOrRefuel(turtle.back)
+                if TurtleGPS.SeekContainer("back", 4) then
+                    local hasBlock, blockDataData = turtle.inspectDown()
+                    if hasBlock and blockDataData.state.age ~= nil then
+                        TurtleGPS.AnchorGps()
+                        TurtleGPS.SeekContainer("front")
+                    end
+                    break
+                end
             end
             turtle.turnRight()
         end

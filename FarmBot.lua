@@ -22,16 +22,20 @@ function Start()
         IsGoneAwayFromOrigin = gps[2]
         TurtlePosition = gps[3]
 
-        if settings.get("farmbot.is_harvesting") then
+        if settings.get("farmbot.is_harvesting") or settings.get("farmbot.isComposting") then
             ShutdownResume.Resume()
         end
 
+        if settings.get("farmbot.maxAging") or settings.get("farmbot.growAndHarvest") then
+            AddItemToBlacklist("minecraft:bone_meal")
+        end
+
         local hasBlock, blockData = turtle.inspectDown()
-        if blockData.state.age ~= nil then
+        if hasBlock and blockData.state.age ~= nil then
             HarvestLoop()
         else
             error(
-            "SetupError: No crops below. Refer to https://github.com/Raikokiar/FarmBot#readme for instructions on how to setup Farmbot")
+                "SetupError: No crops below. See https://github.com/Raikokiar/FarmBot#readme for instructions on how to setup Farmbot")
         end
     else
         SetDefaultSetting()
@@ -69,6 +73,8 @@ function SetDefaultSetting()
     settings.set("farmbot.growAndHarvest", true)
     settings.save()
 
+    AddItemToBlacklist("minecraft:bone_meal")
+
     Crops = defaultCrops
     MaxCropAge = defaultMaxCropAge
     Seeds = defaultSeeds
@@ -88,8 +94,8 @@ function StartPerimeterScan()
     settings.set("farmbot", true)
     settings.save()
 
+
     Harvesting.HarvestLoop(true)
 end
 
 Start()
---FarmbotUI.InstantiateUI(Start)
