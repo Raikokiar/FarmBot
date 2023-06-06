@@ -5,7 +5,7 @@ local TurtleTools = require("TurtleTools")
 TurtlePosition = { x = 0, y = 0 }                                      --> Position of the turtle relative to the origin point
 PreviousPosition = {}                                                  --> Position before ReturningHome
 Compass = { [1] = "NORTH", [2] = "EAST", [3] = "SOUTH", [4] = "WEST" } --> Cardinal direction. North is always pointing towards origin point. index 1 is always the current direction
-local PreviousHeading = ""
+PreviousHeading = ""
 
 OnBeforeMoving = {}
 OnBeforeTurn = {}
@@ -210,56 +210,70 @@ function TurnTowardsPoint(xFirst, point)
     xFirst = xFirst or false
     local originX, originY = table.unpack(point)
     local x, y = TurtlePosition.x, TurtlePosition.y
-    if originX ~= 0 and originY ~= 0 then
+    if originX ~= 0 or originY ~= 0 and point ~= nil then
         x, y = originX - x, originY - y
     end
 
-    --y perpendicular to point and x positive/negative (WEST or EAST)
-    if y == 0 and xFirst then
-        if x > 0 then
-            repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "WEST"
-            return
-        else
-            repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "EAST"
-            return
+    --x axis (EAST/WEST). postitive/negative
+    local function rotateTowardsWestOrSouth()
+        local west = "WEST"
+        local east = "EAST"
+        if y == 0 then
+            --flip so it can go towards point
+            west, east = east, west
+            DebugLog("swap west/east")
         end
-    else
-        -- x perpendicular to point and y positive/negative (NORTH OR SOUTH)
-        if x == 0 then
-            if y > 0 then
-                repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "NORTH"
-                return
-            else
-                repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "SOUTH"
-                return
-            end
+
+        if x > 0 then
+            repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == east
+            return true
+        else
+            repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == west
+            return true
         end
     end
 
     --y axis (NORTH/SOUTH). positive/negative
-    if not xFirst then
-        if y > 0 then
-            repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "NORTH"
-        else
-            repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "SOUTH"
+    local function rotateTowardsNorthOrSouth()
+        local north = "NORTH"
+        local south = "SOUTH"
+        if originX ~= 0 or originY ~= 0 then
+            if originY > TurtlePosition.y then
+                --swap north and south from their places so NORTH is always pointing towards the point
+                north, south = south, north
+                DebugLog("swap north/south")
+            end
         end
-        return
+
+        if y > 0 then
+            repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == north
+            return true
+        else
+            repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == south
+            return true
+        end
     end
 
-    --x axis (EAST/WEST). postitive/negative
-    if x > 0 then
-        repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "EAST"
-    else
-        repeat TurtleGPS.TurnRight() until TurtleGPS.GetCurrentDirection() == "WEST"
+    if xFirst then
+        --swap the orders of the call
+        rotateTowardsNorthOrSouth, rotateTowardsWestOrSouth = rotateTowardsWestOrSouth, rotateTowardsNorthOrSouth
     end
+
+    if not rotateTowardsNorthOrSouth() then
+        rotateTowardsWestOrSouth()
+    end
+
 
     DebugLog("facing: " .. GetCurrentDirection())
 end
 
-function ReturnToOrigin()
-    local turtlePos = GetTurtleRelativePosition()
-    PreviousPosition = { turtlePos.x, turtlePos.y }
-    PreviousHeading = GetCurrentDirection()
+function ReturnToOrigin(dontSaveData)
+    local turtlePos = { x = GetTurtleRelativePosition().x, y = GetTurtleRelativePosition().y }
+    local heading = GetCurrentDirection()
+    if not dontSaveData then
+        PreviousPosition = { turtlePos.x, turtlePos.y }
+        PreviousHeading = GetCurrentDirection()
+    end
     local movesThroughRows = math.abs(turtlePos.y)
     local movesOnRow = math.abs(turtlePos.x)
 
@@ -274,24 +288,36 @@ function ReturnToOrigin()
     for i = 1, movesOnRow, 1 do
         Forward()
     end
+    if dontSaveData then
+        return { x = turtlePos.x, y = turtlePos.y, heading = heading } --return an instance of previous Position
+    end
 end
 
-function ReturnToPreviousPosition()
+function ReturnToPreviousPosition(previousPosInstance)
+    --rows = x, rowLength = y
     local rows = math.abs(PreviousPosition[1])
     local rowLength = math.abs(PreviousPosition[2])
+    local previousPosition = PreviousPosition
+    local previousHeading = PreviousHeading
 
-    TurnTowardsPoint(true, PreviousPosition)
+    if previousPosInstance then
+        rows = math.abs(previousPosInstance.x)
+        rowLength = math.abs(previousPosInstance.y)
+        previousPosition = { previousPosInstance.x, previousPosInstance.y }
+        previousHeading = previousPosInstance.heading
+    end
+
+    TurnTowardsPoint(true, previousPosition)
     for _ = 1, rows, 1 do
         Forward()
     end
 
-    TurnTowardsPoint(true, PreviousPosition)
-
+    TurnTowardsPoint(false, previousPosition)
     for _ = 1, rowLength, 1 do
         Forward()
     end
 
-    repeat TurnRight() until GetCurrentDirection() == PreviousHeading
+    repeat TurnRight() until GetCurrentDirection() == previousHeading
 end
 
 function GetCurrentDirection()
@@ -304,6 +330,12 @@ end
 
 function SetPosition(position)
     TurtlePosition = position
+end
+
+--changes the previous position making so calling return to previous position function go to that place
+function SetPositionToGo(position, heading)
+    PreviousPosition = position
+    PreviousHeading = heading
 end
 
 return {
@@ -321,5 +353,6 @@ return {
     GetTurtleRelativePosition = GetTurtleRelativePosition,
     GetPositionInFarm = GetPositionInFarm,
     SetPosition = SetPosition,
-    TurnTowardsOrigin = TurnTowardsPoint
+    TurnTowardsPoint = TurnTowardsPoint,
+    SetPositionToGo = SetPositionToGo
 }

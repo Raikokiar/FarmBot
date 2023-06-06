@@ -10,7 +10,8 @@ function Resume()
     Compass = settings.get("farmbot.compass")
 
     if settings.get("farmbot.isComposting") then
-        ReturnComposting()
+        local ignoreRoutine = settings.get("farmbot.is_harvesting")
+        ReturnComposting(ignoreRoutine)
         return
     end
 
@@ -23,18 +24,17 @@ function Resume()
         TurtleGPS.ReturnToPreviousPosition()
         RecalibrateGPS()
     end
-    TurtleTools.DropInventory()
     TurtleGPS.TurnRight()
     TurtleGPS.TurnRight()
 end
 
-function ReturnComposting()
+function ReturnComposting(ignoreRoutine)
     if SeekContainer("bottom") then
         turtle.up()
     end
 
     ReturnToOrigin()
-    CompostingRoutine()
+    CompostingRoutine(ignoreRoutine)
     SeekContainer("back")
     HarvestLoop()
 end
@@ -48,8 +48,8 @@ function RecalibrateGPS()
             TurtleTools.MoveOrRefuel(turtle.forward)
         else
             local hasBlock, blockData = turtle.inspectDown()
-            
-            if not hasBlock or hasBlock and blockData.state.age == nil or not turtle.detect() then
+
+            if not hasBlock or hasBlock and blockData.state.age == nil or turtle.detect() then
                 TurtleTools.MoveOrRefuel(turtle.back)
                 if TurtleGPS.SeekContainer("back", 4) then
                     local hasBlock, blockDataData = turtle.inspectDown()

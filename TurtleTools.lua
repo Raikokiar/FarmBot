@@ -49,16 +49,15 @@ function SelectItem(itemName)
     return false
 end
 
---- check if there's any empty slots
-function IsFull()
-    for i = 1, INVENTORY_SIZE, 1 do
-        if turtle.getItemCount(i) <= 0 then
-            return false
-        end
+-- Function to find an empty slot in the turtle's inventory
+local function findEmptySlot()
+    for i = 1, 16 do
+      if turtle.getItemCount(i) == 0 then
+        return i
+      end
     end
-
-    return true
-end
+    return nil -- No empty slot found
+  end
 
 function DropInventory()
     local hasBlacklist = table.maxn(ItemDropBlacklist) > 0
@@ -96,7 +95,7 @@ end
 return {
     SelectItem = SelectItem,
     MoveOrRefuel = MoveOrRefuel,
-    IsFull = IsFull,
+    FindEmptySlot = findEmptySlot,
     DropInventory = DropInventory,
     SetPrintingMethod = SetPrintingMethod,
     AddItemToBlacklist = AddItemToBlacklist

@@ -11,16 +11,16 @@ function GetTrueTableSize(taeble)
 end
 
 
-function GetIndexOf(table, obj)
-    for index, value in ipairs(table) do
+function GetIndexOf(taeble, obj)
+    for index, value in ipairs(taeble) do
         if value == obj then
             return index
         end
     end
 end
 
-function TableContainsValue(table, valueWithin)
-    for index, value in ipairs(table) do
+function TableContainsValue(taeble, valueWithin)
+    for index, value in ipairs(taeble) do
         if value == valueWithin then
             return true, index
         end
@@ -32,5 +32,4 @@ return {
     getTrueTableSize = GetTrueTableSize,
     getIndexOf = GetIndexOf,
     containsValue = TableContainsValue
-
 }

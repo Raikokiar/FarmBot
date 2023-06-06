@@ -8,7 +8,7 @@ Crops = {}
 Seeds = {}
 MaxCropAge = {}
 
-CURRENT_VERSION = "0.0.0"
+CURRENT_VERSION = "1.0.0"
 
 function Start()
     if settings.get("farmbot") then
@@ -22,12 +22,12 @@ function Start()
         IsGoneAwayFromOrigin = gps[2]
         TurtlePosition = gps[3]
 
-        if settings.get("farmbot.is_harvesting") or settings.get("farmbot.isComposting") then
-            ShutdownResume.Resume()
+        if settings.get("farmbot.growAndHarvest") then
+            AddItemToBlacklist("minecraft:bone_meal")
         end
 
-        if settings.get("farmbot.maxAging") or settings.get("farmbot.growAndHarvest") then
-            AddItemToBlacklist("minecraft:bone_meal")
+        if settings.get("farmbot.is_harvesting") or settings.get("farmbot.isComposting") then
+            ShutdownResume.Resume()
         end
 
         local hasBlock, blockData = turtle.inspectDown()
@@ -43,6 +43,8 @@ function Start()
 end
 
 function SetDefaultSetting()
+    os.setComputerLabel("Farmbot v" .. CURRENT_VERSION)
+
     local defaultCrops = {
         [1] = "minecraft:wheat",
         [2] = "minecraft:beetroots",
@@ -71,6 +73,7 @@ function SetDefaultSetting()
     settings.set("farmbot.harvestInterval", 1863.14)
     settings.set("farmbot.maxAging", true)
     settings.set("farmbot.growAndHarvest", true)
+    settings.set("farmbot.compostVegetables", false)
     settings.save()
 
     AddItemToBlacklist("minecraft:bone_meal")

@@ -18,52 +18,65 @@ Age = nil
 
 function IsLowOnFuel()
     if turtle.getFuelLevel() < LOW_FUEL_THRESHOLD then
+        DebugLog("Low on fuel!")
         TryRefillIfLow = false
-        TurtleGPS.ReturnToOrigin()
+        local previousData = TurtleGPS.ReturnToOrigin(true)
 
         local container = TurtleGPS.SeekContainer("top")
 
         if container == nil then
             TryRefillIfLow = true
-            TurtleGPS.ReturnToPreviousPosition()
+            TurtleGPS.ReturnToPreviousPosition(previousData)
             return
         end
 
-
-        for i = 1, INVENTORY_SIZE, 1 do
-            if turtle.getItemCount(i) < 1 then
-                turtle.select(i)
-            end
-        end
-
-        for i = 1, container.size(), 1 do
-            turtle.suckUp()
-            if turtle.refuel(64) then
+        local function getFuel()
+            for i = 1, container.size(), 1 do
                 turtle.suckUp()
-                TryRefillIfLow = true
-                TurtleGPS.ReturnToPreviousPosition()
-                return
-            else
-                turtle.dropUp()
+                if turtle.refuel(64) then
+                    turtle.suckUp()
+                    TryRefillIfLow = true
+                    TurtleGPS.ReturnToPreviousPosition(previousData)
+                    return true
+                else
+                    turtle.dropUp()
+                end
             end
+            return false
         end
 
-        printError("Turtle is running low on fuel")
+        turtle.select(TurtleTools.FindEmptySlot())
+        if getFuel() then
+            return
+        end
+
+        printError(
+            "\n\nTurtle is running low on fuel. all operations have been stopped until fuel is provided on the chest above\n")
+        while true do
+            if getFuel() then
+                break
+            end
+        end
     end
 end
 
 function IsInventoryFull()
-    if TurtleTools.IsFull() then
-        TurtleGPS.ReturnToOrigin()
+    if not TurtleTools.FindEmptySlot() then
+        DebugLog("Inventory is full!")
+        local previousData = TurtleGPS.ReturnToOrigin(true)
 
-        TurtleGPS.SeekContainer("front")
-        TurtleTools.DropInventory()
+        if settings.get("farmbot.growAndHarvest") then
+            CompostingRoutine(true)
+        end
+        SeekContainer("front")
+        DropInventory()
 
-        if TurtleTools.IsFull() then
-            error("Output chest is full")
+        if not TurtleTools.FindEmptySlot() then
+            printError("Output chest is full, idling until it's fixed, please type anything to resume")
+            read()
         end
 
-        TurtleGPS.ReturnToPreviousPosition()
+        TurtleGPS.ReturnToPreviousPosition(previousData)
     end
 end
 
@@ -79,7 +92,6 @@ function HarvestLoop(immediately)
         settings.set("farmbot.position", GetTurtleRelativePosition())
         settings.set("farmbot.origin_heading", IsGoneAwayFromOrigin)
         settings.save()
-        DebugLog(textutils.serialise(GetTurtleRelativePosition()))
     end)
     table.insert(OnBeforeTurn, function()
         settings.set("farmbot.compass", Compass)
@@ -92,18 +104,16 @@ function HarvestLoop(immediately)
 
     while true do
         settings.set("farmbot.compass", Compass)
+        settings.set("farmbot.position", GetTurtleRelativePosition())
+        settings.set("farmbot.origin_heading", IsGoneAwayFromOrigin)
         settings.save()
 
-        if OnMoveThroughPerimeter[2] == nil and TurtleGPS.SeekContainer("top") then
-            table.insert(OnMoveThroughPerimeter, IsLowOnFuel)
+        if TurtleGPS.SeekContainer("top") then
+            table.insert(OnMoveThroughPerimeter, 2, IsLowOnFuel)
             RepeatUntilRefilled = false
         end
         if not immediately then
-            settings.set("farmbot.idle", true)
-            settings.save()
             PersistentTimer()
-            settings.set("farmbot.idle", false)
-            settings.save()
         end
 
         settings.set("farmbot.is_harvesting", true)
@@ -121,18 +131,8 @@ function PersistentTimer()
 
     while timeToSleep > 0 do
         PrintingMethod("\n\n\n\n\n\n\n\n\n\n\n Time Remaining: " .. math.floor(timeToSleep) .. " Minute(s)")
-        print("if you have any seeds you wish to put in the seeds to compost black type below:\n")
-        parallel.waitForAll(sleep(60), function ()
-            local tick = 0
-            while tick <= 60 do
-                sleep(1)
-            end
-
-            return
-        end)
+        sleep(60)
         timeToSleep = timeToSleep - 1
-
-        read()
 
         --Calculate time elapsed and convert it into minutes
         local sleepTimer = (HarvestInterval - (HarvestInterval - timeToSleep * 60)) / 60
@@ -155,21 +155,24 @@ local function findCropOfSeed(cropBeforeBreaking)
                     turtle.select(i)
 
                     local item = turtle.getItemDetail()
-                    local hasPlaced, _ = turtle.placeDown()
 
-                    if hasPlaced then
-                        local hasBlock, blockData = turtle.inspectDown()
-                        if hasBlock and blockData.name == cropBeforeBreaking.name then
-                            Crop = blockData.name
-                            table.insert(KnownCrops, Crop)
-                            Seed = item.name
-                            table.insert(KnownSeeds, Seed)
-                            settings.set("farmbot.crops", KnownCrops)
-                            settings.set("farmbot.seeds", KnownSeeds)
-                            settings.save()
-                            Age = nil
-                        else
-                            turtle.digDown()
+                    if item.name ~= "minecraft:bone_meal" then
+                        local hasPlaced, _ = turtle.placeDown()
+
+                        if hasPlaced then
+                            local hasBlock, blockData = turtle.inspectDown()
+                            if hasBlock and blockData.name == cropBeforeBreaking.name then
+                                Crop = blockData.name
+                                table.insert(KnownCrops, Crop)
+                                Seed = item.name
+                                table.insert(KnownSeeds, Seed)
+                                settings.set("farmbot.crops", KnownCrops)
+                                settings.set("farmbot.seeds", KnownSeeds)
+                                settings.save()
+                                Age = nil
+                            else
+                                turtle.digDown()
+                            end
                         end
                     end
                 end
@@ -188,6 +191,7 @@ local function findCropOfSeed(cropBeforeBreaking)
 end
 
 function Harvest()
+    DebugLog("Starting to harvest")
     KnownAges = settings.get("farmbot.ages")
     KnownCrops = settings.get("farmbot.crops")
     KnownSeeds = settings.get("farmbot.seeds")
@@ -199,6 +203,7 @@ function Harvest()
     local function breakAndPlaceCrop()
         local hasBlock, originalBlockData = turtle.inspectDown()
         if hasBlock and originalBlockData.state.age ~= nil then
+            turtle.select(1) -- selects the first slot so items will stack normally
             if Age ~= nil then
                 if Age == originalBlockData.state.age then
                     turtle.digDown()
@@ -222,7 +227,7 @@ function Harvest()
 
     PerimeterUtils.WalkThroughPerimeter(breakAndPlaceCrop)
 
-    --Compost if needed and deposit items 
+    --Compost if needed and deposit items
     TurtleGPS.ReturnToOrigin()
 
     CompostingRoutine()
@@ -246,36 +251,53 @@ local function boneMealCrop()
     return "No bone meal left"
 end
 
-function CompostingRoutine()
+function CompostingRoutine(ignoreRoutine)
+    DebugLog("Starting composting routine")
     local knownSeeds = settings.get("farmbot.seeds")
     local isMaxAgingEnabled = settings.get("farmbot.maxAging")
     local isGrowAndHarvestEnabled = settings.get("farmbot.growAndHarvest")
+
+    local function incorrectSetup()
+        printError(
+            "Incorrect composting setup found. Go to https://github.com/Raikokiar/FarmBot#setup-rules for more information about auto-composting and how to set it up")
+        settings.set("farmbot.maxAging", false)
+        settings.set("farmbot.growAndHarvest", false)
+        settings.save()
+        ReturnToOrigin()
+        settings.set("farmbot.isComposting", false)
+        settings.save()
+    end
 
     if isMaxAgingEnabled or isGrowAndHarvestEnabled then
         if not SeekContainer("back", 4) then
             error("Expected to be at origin point while composting")
         end
 
-        TurnAway(true)
+        while GetCurrentDirection() ~= "NORTH" do
+            TurnRight()
+        end
 
         settings.set("farmbot.isComposting", true)
         settings.save()
         TurtleGPS.Forward()
 
         local hasBlock, blockData = turtle.inspectDown()
+        local getDetailedInfo = not settings.get("farmbot.compostVegetables")
         if hasBlock and blockData.name == "minecraft:composter" then
             for i = 1, INVENTORY_SIZE, 1 do
                 if turtle.getItemCount(i) > 0 then
                     turtle.select(i)
                 end
 
-                local item = turtle.getItemDetail()
+                local item = turtle.getItemDetail(i, getDetailedInfo)
                 if item ~= nil and TableContainsValue(knownSeeds, item.name) then
-                    --Bot can get stuck in this loop. needs timeout
-                    while true do
-                        turtle.dropDown()
-                        if turtle.getItemCount() < 1 then
-                            break
+                    if getDetailedInfo and (not item.tags["forge:vegetables"] and not item.tags["c:vegetables"] and not item.tags["c:foods"]) or not getDetailedInfo then
+                        --Bot can get stuck in this loop. needs timeout
+                        while true do
+                            turtle.dropDown()
+                            if turtle.getItemCount() < 1 or turtle.getItemDetail().name == "minecraft:bone_meal" then
+                                break
+                            end
                         end
                     end
                 end
@@ -283,20 +305,20 @@ function CompostingRoutine()
 
             --Go to bone meal storage (or not)
             if turtle.detect() then
-                TurtleGPS.ReturnToOrigin()
-                return
+                incorrectSetup()
+                return false
             end
             TurtleGPS.Forward()
             if turtle.detectDown() then
-                TurtleGPS.ReturnToOrigin()
-                return
+                incorrectSetup()
+                return false
             end
             turtle.down()
             local container = SeekContainer("bottom")
             if not container then
                 turtle.up()
-                TurtleGPS.ReturnToOrigin()
-                return
+                incorrectSetup()
+                return false
             end
 
 
@@ -310,34 +332,28 @@ function CompostingRoutine()
             TurtleGPS.ReturnToOrigin()
             SeekContainer("back")
         else
-            --TODO: change link to actual tutorial
-            print(
-                "No composter found. Go to https://github.com/Raikokiar/FarmBot#readme for more information about auto-composting and how to setup")
-            settings.set("farmbot.maxAging", false)
-            settings.set("farmbot.growAndHarvest", false)
-            settings.save()
-            turtle.back()
-            TurnAway()
-            settings.set("farmbot.isComposting", false)
-            settings.save()
-            return
+            incorrectSetup()
+            return false
         end
     end
 
     settings.set("farmbot.isComposting", false)
-    settings.set("farmbot.is_harvesting", true)
-    settings.save()
-    if table.maxn(settings.get("farmbot.crops")) > table.maxn(settings.get("farmbot.ages")) then
-        MaxAging()
-    else
-        GrowAndHarvest()
+    if not ignoreRoutine then
+        settings.set("farmbot.is_harvesting", true)
+        settings.save()
+        if table.maxn(settings.get("farmbot.crops")) > table.maxn(settings.get("farmbot.ages")) then
+            MaxAging()
+        else
+            GrowAndHarvest()
+        end
+        settings.set("farmbot.is_harvesting", false)
+        settings.save()
     end
-    settings.set("farmbot.is_harvesting", false)
-    settings.save()
+    return true
 end
 
 function MaxAging()
-    DebugLog("Beggining to max age")
+    DebugLog("Beginning to max age")
     local knownCrops = settings.get("farmbot.crops")
     local knownAges = settings.get("farmbot.ages")
     local ageListMaxn = table.maxn(settings.get("farmbot.ages"))
@@ -367,7 +383,6 @@ function MaxAging()
                 local cropAge = blockData.state.age
                 local index = GetIndexOf(knownCrops, blockData.name)
                 table.insert(knownAges, index, cropAge)
-                DebugLog(knownCropsMaxn .. " - " .. GetTrueTableSize(knownAges) .. " = "  .. knownCropsMaxn - GetTrueTableSize(knownAges))
                 table.remove(AgelessCrops, GetIndexOf(AgelessCrops, blockData.name))
 
                 if knownCropsMaxn - GetTrueTableSize(knownAges) < 1 then
@@ -406,7 +421,6 @@ function GrowAndHarvest()
             return true
         end
 
-
         if hasBlock then
             turtle.digDown()
         end
@@ -425,6 +439,7 @@ function GrowAndHarvest()
 
     PerimeterUtils.WalkThroughPerimeter(boneMealHarvesting)
     TurtleGPS.ReturnToOrigin()
+    CompostingRoutine(true)
 end
 
 return { HarvestLoop = HarvestLoop }
