@@ -3,22 +3,22 @@ CC:Tweaked Farming turtle script
 
 Farmbot is a farming turtle script that harvests at retangular perimeter and is able to compost seeds and bone meal crops 
 
-# Setup rules
+# Setup Rules
 
 ## 1. Farm Requirements
 
-The farm must be retangular and have at least one row filled with crops. Rows with gaps inside them for water source are ok. Having different crops at the same farm works too.
+* The farm must be retangular and have at least one row filled with any crops. Rows with gaps inside them for water source are ok for as long as there isn't any gaps on the outside borders
+* There should be no obstructions above the farm perimeter. Things like saplings next to the farm can grow into a tree and cause malfunctions 
+* **Ideally there should be a chunkloaders covering the whole farm so the turtle can work and the crops grow while players are away.**
 
-**ideally there should be a chunkloaders covering the whole farm so the turtle can work and the crops grow while players are away.**
-
-For Maximizing timings of Farmbot, refer to the [Minecraft Wiki](https://minecraft.fandom.com/wiki/Tutorials/Crop_farming#Growth_and_harvesting) and the commands below to change the interval between harvests. Farmbot uses 31 minutes as default which is the fastest growth per seed under ideal conditions. To change harvesting interval, refer to the [Commands](https://github.com/Raikokiar/FarmBot#2-set-farmbotharvestinterval-interval-in-seconds) segment
+For Maximizing timings of Farmbot, refer to the [Minecraft Wiki](https://minecraft.fandom.com/wiki/Tutorials/Crop_farming#Growth_and_harvesting) and the [Commands](https://github.com/Raikokiar/FarmBot#2-set-farmbotharvestinterval-interval-in-seconds) below to change the interval between harvests. Farmbot uses 31 minutes as default which is the fastest growth per seed under ideal conditions.
 
 
 ## 2. Turtle Deploy Site Requirements
 
 _Turtle must be at a corner of your farm and it needs a container (chest, barrels, etc) behind it._
 
-*PSA*: Farmbot will automatically disable composting routine if you haven't built Composting setup correctly beforehand. For enabling composting again, refer to the [Commands](https://github.com/Raikokiar/FarmBot#2-set-farmbotharvestinterval-interval-in-seconds) segment
+*PSA*: Farmbot will automatically disable composting routine if you haven't built Composting setup correctly beforehand. For enabling composting again, refer to the [Commands](https://github.com/Raikokiar/FarmBot#3-set-farmbotgrowandharvestfarmbotmaxaging-true-of-false-) segment
 
 ### Optional setups at the storing container corner:
 
